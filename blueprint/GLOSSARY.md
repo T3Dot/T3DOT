@@ -1,7 +1,7 @@
 # Glossary
 
 This page lists T3DOT's terms next to the closest term in the two systems T3DOT learned from:
-- **Marketing OS:** the always-on internal agent team described in [STORY.md](../STORY.md). It isn't public, so this page describes its concepts, not its code. T3DOT contains none of its code.
+- **Marketing OS:** the Agentic Marketing OS, an always-on internal agent team at Fretron, described in [STORY.md](../STORY.md). It isn't public, so this page describes its concepts, not its code. T3DOT contains none of its code.
 - **Paperclip:** [paperclipai/paperclip](https://github.com/paperclipai/paperclip) (MIT, © Paperclip Labs, Inc.), read at commit `c2971ba` in October 2026. Its terms may have changed since.
 
 How to read the tables:

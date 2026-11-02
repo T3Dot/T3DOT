@@ -2,9 +2,9 @@
 
 *Sunil Dhaker · November 2026*
 
-## An always-on agent team
+## Always-on agent teams
 
-I've been building an internal tool, an agentic marketing OS. It's an always-on system: a small team of AI agents that works toward goals people set, every day, without waiting to be asked.
+At Fretron, I've been building an internal tool, the Agentic Marketing OS. It's an always-on system: a small team of AI agents that works toward goals people set, every day, without waiting to be asked.
 - **The team:** a chief of staff coordinates, while a strategist, a writer, a website agent and a revenue agent do the work.
 - **The work:** they research, draft, open pull requests and hand tasks to each other.
 
@@ -13,11 +13,13 @@ It's autonomous, but not unsupervised:
 - **The agents bring a person two kinds of things:** decisions they've already researched, with options and a recommendation, and small unblockers only a person can do, like a login or a phone code.
 - **The rest of the time,** they get on with the work.
 
+Outside Fretron, I run the same kind of always-on setup for BuildRun and for a personal side project. Their agents live directly in T3 Code threads, held together by scripts, schedules and prompts.
+
 ## The hard part is the harness
 
 Getting agents to do useful work was the easy part. Keeping a team of them running, day after day, was not.
 
-Every run goes through a harness: the code that starts an agent, gives it the right context and tools, keeps its session alive, steers it, stops it, and recovers when something breaks. Mine had Claude Code and Codex behind one adapter interface, and the two don't share a lifecycle:
+Every run goes through a harness: the code that starts an agent, gives it the right context and tools, keeps its session alive, steers it, stops it, and recovers when something breaks. The Marketing OS had Claude Code and Codex behind one adapter interface, and the two don't share a lifecycle:
 
 - Claude Code resumes a session from a file on disk. Codex resumes a thread inside its app server.
 - Each takes a new message mid-turn differently, and the harness has to know whether the message joined the running turn or started a new one.
@@ -30,7 +32,7 @@ Each of these has edge cases, and the edge cases interact. None of it is what th
 
 ## T3 Code had already solved it
 
-All this time, I'd been using T3 Code for my own work. Over the last six months I've watched it grow into something remarkably solid. At some point I realised it had already solved nearly everything I was rebuilding, and solved it better:
+All this time, I'd been using T3 Code for my own coding, and the BuildRun and side-project agents ran on it. Over the last six months I've watched it grow into something remarkably solid. At some point I realised it had already solved nearly everything I was rebuilding for the Marketing OS, and solved it better:
 
 - one orchestration layer over Claude Code, Codex, Cursor, OpenCode and more;
 - several accounts per provider, with a thread able to move between compatible accounts;
@@ -40,7 +42,7 @@ All this time, I'd been using T3 Code for my own work. Over the last six months 
 - a checkpoint at the end of every turn, and a queue for each thread;
 - apps for the web, desktop and phone, so I can look in on any agent from anywhere.
 
-Everything I had built into my harness, T3 Code had, plus the parts I hadn't got to yet.
+Everything I had built into the Marketing OS's harness, T3 Code had, plus the parts I hadn't got to yet.
 
 That changed the question. If T3 Code is the engine, which part is actually mine? Not the runner, but the company around it:
 - who's on the team;
@@ -49,19 +51,22 @@ That changed the question. If T3 Code is the engine, which part is actually mine
 - what needs a person;
 - what it all costs.
 
-I had already seen what getting that layer wrong looks like:
-- **Polling that found nothing.** I had one agent checking on the others every 30 minutes, and most of its reports said some version of "nothing has changed".
-- **Coordination that cost more than the work.** In a two-day sample of model spend, most of it went on coordination: agents waking each other to talk about the work instead of doing it.
+Across these setups, I had already seen what getting that layer wrong looks like:
+- **Polling that found nothing.** At Fretron, one agent checked on the others every 30 minutes. On the T3 Code setups, a heartbeat woke the lead agent every 15 minutes. Most of those runs said some version of "nothing has changed".
+- **Coordination that cost more than the work.** In a two-day sample of the Marketing OS's model spend, most of it went on coordination: agents waking each other to talk about the work instead of doing it.
+- **Wakes that went missing.** The webhook that woke the lead agent on the T3 Code setups died quietly. Messages then waited for the next heartbeat, sometimes for hours.
+- **Threads that grew until they broke.** A lead agent's thread got so long that it failed, and its replacement was heading the same way.
+- **Rules that lived only in prompts.** Send caps were waived under pressure, and some scripts never checked the stop file.
 
 ## Then I found Paperclip
 
-When I went looking for anyone else building that layer, I found Paperclip. Reading its README was strange: an org chart, goals, budgets, approvals, agents that wake up and get to work. It had the same shape as the system I'd been building, arrived at separately. I'd started before I knew it existed.
+When I went looking for anyone else building that layer, I found Paperclip. Reading its README was strange: an org chart, goals, budgets, approvals, agents that wake up and get to work. It had the same shape as the Marketing OS, arrived at separately. I'd started before I knew it existed.
 
-The coincidence was useful. When two systems built apart end up looking alike, you can see which parts are essential. So I studied Paperclip closely, side by side with my own system, and carried a few of its ideas over:
+The coincidence was useful. When two systems built apart end up looking alike, you can see which parts are essential. So I studied Paperclip closely, side by side with the Marketing OS, and carried a few of its ideas over:
 
 - **A next mover for everything.** Paperclip's rule is never to leave work where nobody is responsible for the next move.
   - In T3DOT, every open item names what moves it next: a run, a timer, a person or a decision.
-  - A sweep flags anything without one. One of my projects once sat in a queue for more than a day before anyone noticed.
+  - A sweep flags anything without one. One project in the Marketing OS once sat in a queue for more than a day before anyone noticed.
 - **A receipt for every wake that didn't happen,** saying which check stopped it.
 - **Typed failures.** "Quota used up until 3 pm" is not a passing rate limit, so wait it out instead of burning retries.
 - **A ledger that fails closed,** so spending stops at a limit instead of being discovered later.
@@ -81,7 +86,11 @@ T3DOT is a small company layer that runs beside T3 Code. T3 Code runs the agents
 
 It also holds the budgets, the leases on shared things like a logged-in browser, and the decisions people make, each pinned to exactly what was approved.
 
-It talks to T3 Code through its MCP and HTTP interfaces; there's no fork. It doesn't contain my internal tool's code either; it carries what building that tool taught me. A team that already has its own agent kernel, like mine, can keep it and use T3DOT's bridge to run its agents on T3 Code. The [glossary](blueprint/GLOSSARY.md) maps T3DOT's terms to the ones in my marketing OS and in Paperclip.
+It has two modes, one for each kind of setup I run:
+- **Full mode** is the control plane for agents that already live in T3 Code threads, like the ones I run for BuildRun and my side project.
+- **Bridge mode** is for a team with its own agent kernel, like the Marketing OS at Fretron. The team keeps its kernel and uses T3DOT's bridge to run its agents on T3 Code.
+
+It talks to T3 Code through its MCP and HTTP interfaces; there's no fork. It doesn't contain any of the Marketing OS's code; it carries what building and running these systems taught me. The [glossary](blueprint/GLOSSARY.md) maps T3DOT's terms to the ones in the Marketing OS and in Paperclip.
 
 ## The name
 

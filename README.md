@@ -33,7 +33,7 @@ Agent teams run on prompts and timers alone break in predictable ways:
 - **Shared logins without real locks.** Two agents driving one browser session collide.
 - **Approvals scattered through chat,** with no record of what exactly was approved.
 
-These come from running an always-on agent team. [The story behind T3DOT](STORY.md) tells how the project started.
+These come from running always-on agent teams at Fretron, at BuildRun and on a side project. [The story behind T3DOT](STORY.md) tells how the project started.
 
 ## How it works
 
@@ -122,7 +122,7 @@ sequenceDiagram
 
 | Path | What |
 |---|---|
-| [`STORY.md`](STORY.md) | How T3DOT started: an always-on internal agent team, T3 Code and Paperclip |
+| [`STORY.md`](STORY.md) | How T3DOT started: agent teams at Fretron and BuildRun, T3 Code, and Paperclip |
 | [`blueprint/BLUEPRINT.md`](blueprint/BLUEPRINT.md) | The design: concepts, invariants, architecture, data model, lifecycles, the T3 Bridge, governance, security, operations, testing and the build plan. Appendix A lists every T3 Code behaviour the design relies on, with source paths |
 | [`blueprint/GLOSSARY.md`](blueprint/GLOSSARY.md) | How T3DOT's terms map to the Marketing OS and Paperclip, and what came from each |
 | [`blueprint/CONFIG.md`](blueprint/CONFIG.md) | Configuration reference |
@@ -176,7 +176,7 @@ Details are in [blueprint §15](blueprint/BLUEPRINT.md#15-build-plan).
 - humans see decisions, not a feed of alerts;
 - T3DOT doesn't run agents itself; T3 Code does.
 
-T3DOT also draws on the Marketing OS, the internal agent team in [STORY.md](STORY.md). [GLOSSARY.md](blueprint/GLOSSARY.md) maps T3DOT's terms to both.
+T3DOT also draws on the Agentic Marketing OS, an internal agent team at Fretron described in [STORY.md](STORY.md). [GLOSSARY.md](blueprint/GLOSSARY.md) maps T3DOT's terms to both.
 
 ## Contributing
 
