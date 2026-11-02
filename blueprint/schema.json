@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/T3Dot/T3DOT/main/blueprint/schema.json",
+  "$id": "https://raw.githubusercontent.com/T3Dot/T3Dot/main/blueprint/schema.json",
   "title": "t3dot company configuration bundle",
   "description": "All YAML files in a company config directory are merged by top-level key, then validated against this schema. Cross-references are checked by tools/validate.mjs.",
   "type": "object",

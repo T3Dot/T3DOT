@@ -98,6 +98,6 @@ T3, because T3 Code is the backbone. DOT, because the .bot domain I wanted was a
 
 ---
 
-T3DOT is a proposal for now: a design, a configuration schema and a validator. If you run agents all day and any of this sounds familiar, I'd like to hear how you handle it. [Open an issue](https://github.com/T3Dot/T3DOT/issues).
+T3DOT is a proposal for now: a design, a configuration schema and a validator. If you run agents all day and any of this sounds familiar, I'd like to hear how you handle it. [Open an issue](https://github.com/T3Dot/T3Dot/issues).
 
 *T3DOT is an independent project, not affiliated with T3 Tools, Inc. See [NOTICE.md](NOTICE.md).*
