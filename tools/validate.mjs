@@ -18,7 +18,7 @@ const BUILTIN_EVENTS = new Set([
   "run.started", "run.completed", "run.failed", "run.waiting", "run.silent",
   "thread.held", "thread.oversize", "t3.down", "t3.up", "t3.credential_expiring",
   "engine.held", "engine.down", "engine.ok", "timer.missed", "expectation.missed",
-  "work.stuck", "work.blocked", "work.requested", "decision.decided", "decision.expired",
+  "work.stuck", "work.blocked", "work.requested", "work.done", "work.children_done", "decision.decided", "decision.expired",
   "budget.warn", "budget.hold", "lease.expired", "lease.denied", "seat.rotated",
   "config.rejected", "receipt.uncertain", "seat.timer_due",
 ]);
@@ -166,6 +166,12 @@ for (const s of list("seats")) {
   for (const id of s.budgets ?? []) needBudget(id, `seats.${s.id}.budgets`);
   for (const id of s.predicates ?? []) needPred(id, `seats.${s.id}.predicates`);
   if (s.executor && full) warn(`seats.${s.id}: executor is only meaningful in bridge mode`);
+  if (s.per_work) {
+    for (const o of s.per_work.owners ?? []) needSeat(o, `seats.${s.id}.per_work.owners`);
+    if (s.per_work.close_decision) needDecision(s.per_work.close_decision, `seats.${s.id}.per_work.close_decision`);
+    if (s.reports_to) err(`seats.${s.id}: a work-seat template has reports_to: null; each instance reports to its work item's owner`);
+    if (s.binding) err(`seats.${s.id}: a work-seat template has no binding; instances bind at runtime`);
+  }
 }
 for (const s of list("seats")) {
   const seen = new Set([s.id]);
@@ -205,6 +211,10 @@ for (const r of list("routes")) {
   for (const id of r.predicates ?? []) needPred(id, `routes.${r.id}.predicates`);
   for (const id of r.leases ?? []) needLease(id, `routes.${r.id}.leases`);
   for (const id of r.budgets ?? []) needBudget(id, `routes.${r.id}.budgets`);
+}
+
+if (list("routes").some((r) => r.to?.resolver === "work_seat") && !list("seats").some((s) => s.per_work)) {
+  warn("routes: work_seat is used but no seat has per_work, so those events always go to the owner seat");
 }
 
 // predicates, leases, budgets

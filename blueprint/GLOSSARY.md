@@ -18,6 +18,7 @@ How to read the tables:
 | **Company**: one install | One install for one business | **Company**: one install hosts many, each with its own access checks | Marketing OS |
 | **Brand**: a dimension on seats, events, work and budgets | — | — | new |
 | **Seat**: a role bound to a T3 thread | **Seat**: role, mission, doctrine, tools, reporting line and a limit on parallel tasks | **Agent**: role, title, `reportsTo`, adapter and budget | both |
+| **Work seat**: a seat that exists for one goal, project or job, with its own thread that rotates and retires at close-out | **Owner thread**: every goal and project has its own conversation (`work:<id>`), never rotated | — Closest: a parent issue assigned to the project's lead agent, whose session lasts as long as that issue | Marketing OS, with Paperclip's parent-wake rule |
 | **Reports to** | A reporting chain; work can be assigned down it | An org chart; hiring an agent can require board approval | both |
 | **Class**: reader, actor, presenter or operator | — | — | new |
 | **Presenter**: the seat that curates decisions for people | **Presenter**: exactly one seat, the chief of staff, brings decisions to a person | — (any agent can open an approval) | Marketing OS |
@@ -133,6 +134,7 @@ How to read the tables:
 **From the Marketing OS:**
 - seats with doctrine and reporting lines, and one place that decides who wakes;
 - the settle contract, with two nudges before a block;
+- a thread for each goal and project, kept as work seats, but rotated and woken only when needed;
 - approvals pinned to an exact version and hash, and superseded by newer versions;
 - one presenter, and the split between Needs-me items and decisions;
 - an integration broker that holds every credential, with exact write grants, and receipts where an uncertain result blocks a blind resend;
@@ -140,6 +142,7 @@ How to read the tables:
 
 **From Paperclip:**
 - one admission function, and a receipt for every wake that didn't happen;
+- waking a parent only when all its children finish (`work.children_done`);
 - the next-mover contract, with at most one open recovery item per piece of work;
 - typed failures that tell a quota reset from a passing rate limit;
 - an append-only cost ledger, and budgets that fail closed;

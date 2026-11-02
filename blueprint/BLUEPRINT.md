@@ -1,6 +1,6 @@
 # t3dot blueprint: the neutral system
 
-**Status: proposal, v2.1 (2 Nov 2026).** This is a design; nothing here is built yet.
+**Status: proposal, v2.2 (3 Nov 2026).** This is a design; nothing here is built yet.
 
 How this design was made:
 - **T3 Code facts** come from reading T3 Code's public source. [Appendix A](#appendix-a-t3-code-facts-this-design-relies-on) lists every behaviour the design depends on, with source paths, checked at upstream `main` `e6e2ab05cc` (1 Nov 2026). Re-check them against the version you run.
@@ -75,6 +75,7 @@ It also records spend, decisions and external effects. It does not replace T3's 
 | Brand | A dimension on seats, events, work, budgets and the ledger | `acme`, `acme-labs` | `product-a` |
 | Environment | One T3 server the bridge drives | The office Mac mini | A cloud VM |
 | Seat | A role with authority, budgets, a profile and a bound thread | `chief`, `social`, `posting-desk` | `chief`, `website` |
+| Work seat | A seat that exists for one goal, project or job: its own thread, rotated, retired at close-out | A seat for the "new website" project | The org's own thread per project |
 | Profile | The T3 provider instance a seat runs on: model, mode, doctrine file, sandbox | `seat-chief` (Claude, full-access) | `seat-website` (Claude, confined) |
 | Binding | A seat's current T3 thread, with a generation number | chief gen 5 | website gen 2 |
 | Event | A typed fact with a source and an idempotency key | `msg.inbound`, `slot.due` | `ticket.closed` |
@@ -124,6 +125,7 @@ Each invariant is a test target. Section 14 says how each is tested.
 | I14 | Config is revisioned. An invalid unit is disabled on its own, and its last-known-good version stays live | Config (C1) |
 | I15 | Ingestion is idempotent: (source, key) is unique | `events` unique index |
 | I16 | **Pause is central.** One switch stops admission and makes the broker refuse writes, for seats and scripts alike | `pauses`, checked by C5 and C13 |
+| I17 | A work seat exists only while its work item is open, and a work item has at most one | Partial unique index on `seats(template_id, work_id)`; the work-seat lifecycle (§5.9) |
 
 ---
 
@@ -217,7 +219,9 @@ config_revisions(id PK, unit, hash, body_json, status /*applied|rejected|superse
 
 -- org
 seats(id PK, title, brands_json, reports_to, class /*reader|actor|presenter|operator*/, profile_id,
-      status /*active|paused|retired*/, config_rev)
+      status /*starting|active|paused|retiring|retired*/, config_rev,
+      template_id /*work seats: the template seat*/, work_id /*work seats: the goal, project or job*/)
+  -- partial unique: (template_id, work_id) WHERE status <> 'retired'
 seat_bindings(seat_id, generation, environment_id, project_id, thread_id, kind /*seat|worker*/, parent_thread_id,
               pinned, opened_at, closed_at, close_reason, items_at_close, PRIMARY KEY(seat_id, generation, thread_id))
   -- partial unique: one open kind='seat' row per seat_id
@@ -364,6 +368,28 @@ There are three kernel-only statuses:
 - One-shot timers end in `done`.
 - Seat-owned timers count toward a per-seat cap, default 20. This replaces agents creating self-deleting one-off T3 schedules as reminders.
 
+### 5.9 Work seats
+
+A work seat is a seat that exists for one goal, project or job. It gives that work item its own thread, the way the Marketing OS gives every goal and project an owner thread, with two changes learned from running it: the thread rotates, and the seat wakes only when something needs it.
+
+`starting → active ⇄ rotating → retiring → retired`. Reopening the work item starts the seat again with a new generation.
+
+- **Template.** A seat with `per_work: {kind, owners, max_active, close_decision}` is a template, not a seat. The kernel creates one instance for each open work item of that kind whose owner is in `owners` (any owner if omitted). An instance:
+  - has the id `<template>.<work id>`;
+  - takes the template's profile, class, wake settings, rotation and doctrine;
+  - gets its own windows for the template's budgets;
+  - reports to the work item's owner seat.
+- **Start.** When a matching work item opens, the kernel creates the instance and launches its thread with a brief: the item's acceptance, its parent, its owner, budgets and doctrine links. It pins the thread and binds generation 1. The item's next mover becomes the seat.
+- **Authority.** An instance may create work for its owner seat's direct reports, within its work item's subtree, and uses `work request` for anyone else. It cannot close its own item. It proposes close-out with `decide`, using the `close_decision` type pinned to its outcome summary; without one, the owner seat closes the item.
+- **Wakes.**
+  - Route each child's `work.done` to the seat with `delivery: passive`, so completions arrive as context.
+  - Wake it on `work.children_done` (every child done or cancelled), `work.blocked`, `work.stuck`, its own timers, decisions, and people messaging it.
+  - Why: the Marketing OS woke owners on every child notice, and in a measured two-day sample that coordination took most of its model spend. Paperclip wakes a parent only when all its children finish.
+- **Rotation.** As for any seat (§7.6). A project can outlive many threads. The Marketing OS's owner threads never rotated, so each coordination run reread millions of cached tokens.
+- **Close-out.** When the item is done or cancelled, the kernel holds admission, waits for any active run, writes the seat's last settle into the item's outcome, settles and archives the thread, and retires the instance.
+- **Reopen.** Reopening the item reactivates the instance with a new generation. The brief carries the previous outcome.
+- **Cap.** With `max_active` instances open, a new matching item gets no seat. Its owner seat owns it directly, and the kernel writes a gate receipt (`work_seat_cap`). The oldest waiting item gets a seat when one frees.
+
 ---
 
 ## 6. The admission pipeline
@@ -377,7 +403,7 @@ There are three kernel-only statuses:
 - **Matching:** the first matching route wins unless it sets `fanout: true`. A target is one of:
   - a seat id;
   - `owner_of: <subject field>`;
-  - a built-in resolver: `brand_head`, `job_seat` or `presenter_of`.
+  - a built-in resolver: `brand_head`, `job_seat`, `presenter_of`, or `work_seat`. `work_seat` picks the work seat of the event's work item, or of its nearest ancestor that has one; if none has one, the item's owner seat.
 - **Work rule:** `attach` (find open work by record ref), `create` (kind plus title template), or none.
 - **Coalescing:** one open wake per seat. New events append to it, and its priority becomes the maximum. A per-seat `coalesce_window_s` batches bursts. At most `max_events` per packet (default 20); the rest wait for the next wake.
 - **During an active run:** new events attach to the seat's next wake, which is sent when the run ends. Steering is opt-in per route (`delivery: steer`), for urgent stops only.
@@ -538,6 +564,7 @@ Both live in the kernel's secret store (mode 0600, kernel user), never in the co
 - **Binding models:**
   - `per_seat` (the t3dot default): one long-lived thread per seat, rotated.
   - `per_conversation` (typical in bridge mode): one T3 thread per goal, project or task conversation, recorded by the org's runner. Closed conversations' threads are archived 7 days after close, to keep the shell small.
+  - Work seats (§5.9) bind `per_seat` for the life of their work item: one thread at a time, rotated, and closed when the item closes.
 
 ### 7.5 Held queues and pending requests
 - **Detecting holds:** MCP cannot see `queueHeld`. A thread that has queued runs but no `activeRunId` in the shell is treated as held. Gate G4 checks this before a send, and §6.4 re-checks after a `queued` delivery.
@@ -796,7 +823,7 @@ Posting seats open T3's persistent browser profile (`preview_open` with `profile
 | M2 | Live dispatch, one seat | Bridge C1 plus profiles, dispatcher, confirm, company MCP (context, events_get, settle), nudge, failure kinds, engine health | 7 days live: dispatch→start p90 ≤2 min and max ≤10 min (one real desk measured p90 ≈12 min and max ≈3 h before this design); 0 lost wakes | M |
 | M3 | Time and resources | Timers, expectations, leases with fencing, seat timers | No silent skips (every skip is a `timer.missed` event); heartbeat runs at 0 after 3 clean sentinel days | M |
 | M4 | Broker | Grants, budgets, receipts, pause through the broker, the scripts' broker API | One send budget per line enforced across all senders; pause stops 100% of brokered writes | L |
-| M5 | Governance and money | Decision types, surface adapters, standing rules, ledger, compute budgets, automatic rotation | Decisions pinned and superseded correctly; budget holds fire; rotation under 2 min of seat downtime | M |
+| M5 | Governance and money | Decision types, surface adapters, standing rules, ledger, compute budgets, automatic rotation, work seats | Decisions pinned and superseded correctly; budget holds fire; rotation under 2 min of seat downtime; a project's work seat starts with the project and retires at close-out | M |
 | M6 | Records and knowledge | Record adapter (outbox events, `record_query`), doctrine build | Kernel writes no business records; doctrine changes land at rotation | M |
 | M7 | OS-user split | Kernel user, secret move, profile files ownership | File-read probe from a seat cannot read any broker secret | S–M |
 
@@ -837,6 +864,15 @@ Lessons from designing a real bridge-mode adoption:
 ---
 
 ## 17. Changelog and backlog
+
+**v2.2 (3 Nov 2026).** Work seats: a goal, project or job can have its own seat and thread, the way the Marketing OS gives every goal and project an owner thread, but rotated, and woken only when it matters.
+
+| Change | Where |
+|---|---|
+| Work seats: seat templates with `per_work`, one instance per open goal, project or job, each with its own rotated thread; retired at close-out, started again on reopen | §1, §5.9, schema, validator |
+| Resolver `work_seat`, which falls back to the item's owner seat | §6.2, schema |
+| Built-in events `work.done` and `work.children_done` | CONFIG, validator |
+| Invariant I17, and `seats.template_id` and `seats.work_id` | §2, §4 |
 
 **v2.1 (2 Nov 2026).** Writing complete configurations for two real organisations against v2 showed what the format couldn't express. v2.1 adopted the additive items below. The schema stayed backward-compatible, and both configurations, plus `examples/minimal`, validate with 0 errors and 0 warnings.
 

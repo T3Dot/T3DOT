@@ -112,6 +112,7 @@ sequenceDiagram
 - **One way in.** Only the dispatcher sends to T3, and only for wakes that passed every gate.
 - **One pending wake per seat.** Events coalesce, so a burst of 10 messages is one turn, not 10.
 - **Every open item has a next mover:** a run, a timer, a decision, a human, other work or an expected event. A sweep catches anything without one within 5 minutes.
+- **A project can have its own seat.** A work seat lives for one goal, project or job. Its thread rotates, it wakes when all its children finish or one is blocked, and it retires at close-out.
 - **Approvals are pinned to content.** A decision approves an exact content hash. "Approve and always allow" creates a bounded, revocable standing rule. Some decisions, such as prices and money moves, are floors that only a human can make.
 - **Grants, budgets and leases are enforced in the broker, not in prompts.** Leases carry fencing tokens, so two agents can't both hold a browser profile.
 - **The kernel never writes business records.** It reacts to the system of record's events; the owning seats write.
@@ -161,7 +162,7 @@ A configuration is a directory of YAML files. Besides the schema, the validator 
 | M2 Live, one seat | Bridge, dispatcher, company MCP, nudges, failure kinds, engine health | Dispatch-to-start p90 ≤2 min, max ≤10 min; no lost wakes |
 | M3 Time and resources | Timers, expectations, leases with fencing | No silent skips; timer heartbeats retired |
 | M4 Broker | Grants, budgets, receipts, pause through the broker | One send budget per line across every sender; pause stops every brokered write |
-| M5 Governance and money | Decisions, surfaces, standing rules, ledger, automatic rotation | Pinned decisions; budget holds fire |
+| M5 Governance and money | Decisions, surfaces, standing rules, ledger, automatic rotation, work seats | Pinned decisions; budget holds fire; a project's seat retires at close-out |
 | M6 Records and knowledge | Record adapter, doctrine built from a knowledge base | The kernel writes no business records |
 | M7 OS-user split | Kernel and broker secrets out of the agents' reach | A file-read probe from a seat can't read any broker secret |
 

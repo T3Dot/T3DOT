@@ -76,6 +76,7 @@ node tools/validate.mjs <config-dir>     # exit 1 on errors; warnings alone exit
 | `status` | `active`, `paused`, `retired`, `planned` |
 | `executor` | Bridge mode only: `t3` or `native`, or per engine: `{claudeAgent: t3, codex: native}` |
 | `binding_model` | `per_seat` (default; one long-lived rotated thread) or `per_conversation` (one T3 thread per goal, project or task; typical in bridge mode) |
+| `per_work` | Makes this entry a work-seat template: `{kind: goal\|project\|job, owners, max_active, close_decision}`. The kernel creates one seat per open work item of that kind (blueprint §5.9). Instances report to the item's owner seat, so a template has `reports_to: null` and no `binding`. Budgets that name the template apply to each instance separately |
 | `project` | `{project_id, path}`: the T3 project the seat thread runs in |
 | `human_chat` | Whether humans message the seat thread directly. Those runs are observed |
 | `capacity` | Max concurrent kernel-dispatched runs. Default 1 (one thread) |
@@ -85,6 +86,28 @@ node tools/validate.mjs <config-dir>     # exit 1 on errors; warnings alone exit
 | `budgets[]`, `predicates[]` | Seat-level gates (G5 and G6) |
 | `binding` | Current thread at adoption time: `{thread_id, generation, items}` |
 | `replaces[]` | Today's threads or roles this seat absorbs |
+
+#### Work seats: a thread per project
+
+A seat with `per_work` is a template. This one gives each project the chief owns its own seat and thread. The routes wake it when all of a project's children finish, or one is blocked or stuck, and pass each child's completion as context only:
+
+```yaml
+seats:
+  - id: project-lead
+    title: Project lead
+    brands: [acme]
+    reports_to: null          # each instance reports to its project's owner
+    class: actor
+    profile: seat-project
+    status: active
+    per_work: { kind: project, owners: [chief], max_active: 3, close_decision: project.close }
+    rotation: { max_items: 6000 }
+
+routes:
+  - { id: child-done, on: { type: work.done }, to: { resolver: work_seat }, delivery: passive, settle: optional }
+  - { id: children-done, on: { type: work.children_done }, to: { resolver: work_seat }, settle: required }
+  - { id: child-stuck, on: { type: [work.blocked, work.stuck] }, to: { resolver: work_seat }, settle: required }
+```
 
 ### `events[]`
 | Field | Meaning |
@@ -103,6 +126,7 @@ These **built-in kernel events** may be routed without being declared:
 - `engine.held`, `engine.down`, `engine.ok`
 - `timer.missed`, `expectation.missed`
 - `work.stuck`, `work.blocked`, `work.requested`
+- `work.done` (a work item reached done) and `work.children_done` (every child of a work item is done or cancelled)
 - `decision.decided`, `decision.expired`
 - `budget.warn`, `budget.hold`
 - `lease.expired`, `lease.denied`
@@ -119,7 +143,7 @@ These **built-in kernel events** may be routed without being declared:
 | Field | Meaning |
 |---|---|
 | `on` | `{type: one or a list, filter: {field: value}}` |
-| `to` | Exactly one of `{seat}`, `{owner_of: <subject field>}`, `{resolver: brand_head\|job_seat\|presenter_of}`, `{assist: <assist decision type>}`. `assist` raises a Needs-me item and wakes no seat |
+| `to` | Exactly one of `{seat}`, `{owner_of: <subject field>}`, `{resolver: brand_head\|job_seat\|presenter_of\|work_seat}`, `{assist: <assist decision type>}`. `assist` raises a Needs-me item and wakes no seat |
 | `work` | `{attach: <subject field>}` or `{create:{kind, title}}` |
 | `settle` | `required` (nudge twice, then block) or `optional` (completion counts as ack) |
 | `delivery` | `queue` (default), `steer` (urgent stops only), or `passive` (attach as context to the seat's next wake; never wake on its own) |
@@ -203,6 +227,8 @@ These **built-in kernel events** may be routed without being declared:
 | No reporting cycles | Authority must terminate |
 | `company.floors` entries exist and set `floor: true`. Floor decisions have only human deciders and no standing rules | Floors can't be delegated |
 | A `reader` seat may not hold a grant on an `outbound` write op, unless the grant sets `mode: read` | Rule of Two (blueprint §9.7) |
+| A `per_work` template has `reports_to: null` and no `binding`; its `owners` and `close_decision` resolve | Instances get their owner and thread at runtime |
+| A route to `work_seat` with no `per_work` template is a warning | Its events would always go to the owner seat |
 | A profile's `runtime_mode` may not exceed its environment's `credentials.c1_access` | The kernel can't drive threads above its own C1 ceiling |
 | `to: {assist}` names a decision type of kind `assist` | Needs-me items have their own lane |
 | Op patterns in grants, budgets and leases match at least one declared op (warning) | Catch typos that would silently grant nothing |

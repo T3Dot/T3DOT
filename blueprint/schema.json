@@ -859,6 +859,36 @@
             "per_conversation"
           ],
           "description": "per_seat (the t3dot default): one long-lived thread per seat, rotated. per_conversation (typical in bridge mode): one T3 thread per goal, project or task conversation, recorded by the org's runner."
+        },
+        "per_work": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "description": "Makes this seat a work-seat template: one instance per open work item of this kind (blueprint §5.9).",
+          "properties": {
+            "kind": {
+              "enum": [
+                "goal",
+                "project",
+                "job"
+              ]
+            },
+            "owners": {
+              "$ref": "#/definitions/slugList"
+            },
+            "max_active": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "close_decision": {
+              "$ref": "#/definitions/slug"
+            },
+            "notes": {
+              "$ref": "#/definitions/notes"
+            }
+          }
         }
       },
       "if": {
@@ -1077,7 +1107,8 @@
               "enum": [
                 "brand_head",
                 "job_seat",
-                "presenter_of"
+                "presenter_of",
+                "work_seat"
               ]
             },
             "assist": {
