@@ -98,6 +98,8 @@ It also records spend, decisions and external effects. It does not replace T3's 
 | Surface | Where humans see things and decide | Owner console cards | The team's approvals UI |
 | Record | A pointer into the external system of record | `sor:job/88` | A knowledge-base row |
 
+How these terms map to the Marketing OS and Paperclip, and which ideas came from each: [GLOSSARY.md](GLOSSARY.md).
+
 ---
 
 ## 2. Invariants

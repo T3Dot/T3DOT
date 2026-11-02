@@ -33,6 +33,8 @@ Agent teams run on prompts and timers alone break in predictable ways:
 - **Shared logins without real locks.** Two agents driving one browser session collide.
 - **Approvals scattered through chat,** with no record of what exactly was approved.
 
+These come from running an always-on agent team. [The story behind T3DOT](STORY.md) tells how the project started.
+
 ## How it works
 
 ```mermaid
@@ -120,7 +122,9 @@ sequenceDiagram
 
 | Path | What |
 |---|---|
+| [`STORY.md`](STORY.md) | How T3DOT started: an always-on internal agent team, T3 Code and Paperclip |
 | [`blueprint/BLUEPRINT.md`](blueprint/BLUEPRINT.md) | The design: concepts, invariants, architecture, data model, lifecycles, the T3 Bridge, governance, security, operations, testing and the build plan. Appendix A lists every T3 Code behaviour the design relies on, with source paths |
+| [`blueprint/GLOSSARY.md`](blueprint/GLOSSARY.md) | How T3DOT's terms map to the Marketing OS and Paperclip, and what came from each |
 | [`blueprint/CONFIG.md`](blueprint/CONFIG.md) | Configuration reference |
 | [`blueprint/schema.json`](blueprint/schema.json) | JSON Schema for a company configuration |
 | [`blueprint/examples/minimal/`](blueprint/examples/minimal/) | The smallest complete configuration |
@@ -165,11 +169,14 @@ Details are in [blueprint §15](blueprint/BLUEPRINT.md#15-build-plan).
 
 ## Prior art
 
-[Paperclip](https://github.com/paperclipai/paperclip) (MIT, Paperclip Labs) runs teams of agents as a company, with an org chart, budgets and tickets. T3DOT takes several of its ideas: a single admission path, receipts for skipped wakes, a next-mover check, typed failures, a cost ledger and "always allow" rules. It differs on purpose:
-- agents don't pick their own work;
-- timers don't wake agents without a task;
-- parents aren't woken on every child completion;
-- humans see decisions, not a feed of alerts.
+[Paperclip](https://github.com/paperclipai/paperclip) (MIT, Paperclip Labs) runs teams of agents as a company, with an org chart, budgets and tickets. T3DOT takes several of its ideas: a single admission path, receipts for skipped wakes, a next-mover check, typed failures, a cost ledger and "always allow" rules. Both keep timer heartbeats off by default and coalesce wakes. They differ on purpose:
+- agents don't check out their own work; routes assign it;
+- comments, assignments and status changes don't wake an agent directly; every wake goes through a configured route and the same gates;
+- decisions go through a presenter and are pinned to their content; there are no per-call "ask first" prompts;
+- humans see decisions, not a feed of alerts;
+- T3DOT doesn't run agents itself; T3 Code does.
+
+T3DOT also draws on the Marketing OS, the internal agent team in [STORY.md](STORY.md). [GLOSSARY.md](blueprint/GLOSSARY.md) maps T3DOT's terms to both.
 
 ## Contributing
 
