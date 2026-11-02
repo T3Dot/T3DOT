@@ -1,0 +1,150 @@
+# Smallest complete t3dot config: one brand, two seats, one inbound event, one timer.
+# Validate with: node tools/validate.mjs blueprint/examples/minimal
+company:
+  id: acme
+  name: Acme Studio
+  timezone: Asia/Kolkata
+  mode: full
+  brands: [{ id: acme, name: Acme }]
+  environments:
+    - id: studio-mac
+      label: Studio Mac
+      t3_url: http://127.0.0.1:3773
+      credentials: { mcp: "secret:t3/mcp", session: "secret:t3/session" }
+      settings: { continueThreadsAfterServerUpdate: true }
+  kernel: { listen: "127.0.0.1:8890", os_user: t3dot, db_path: /var/t3dot/acme.sqlite, change_control: direct }
+  concurrency: { global: 4, per_provider: { claudeAgent: 3, codex: 2 } }
+  quiet_hours: { start: "22:30", end: "08:00", applies_to: messages we start }
+  pause_files: [{ path: /Users/owner/.acme/HALT, scope: global }]
+  presenter: chief
+  floors: [price.quote]
+  adapters:
+    - { id: cards, kind: t3_thread, settings: { thread: owner-inbox } }
+    - { id: tg, kind: telegram, status: planned }
+  surfaces: { decisions: cards, assist: cards, alerts: [tg] }
+  scripts: [{ id: autoreply, description: Template replies to inbound messages }]
+
+profiles:
+  - id: seat-chief
+    kind: seat
+    driver: claudeAgent
+    environment: studio-mac
+    posture: standard
+    model: claude-opus-5-5
+    runtime_mode: full-access
+    idle_compaction: "off"
+    settings_file: /var/t3dot/profiles/chief/settings.json
+    doctrine_file: /var/t3dot/profiles/chief/DOCTRINE.md
+    env: [{ name: T3DOT_SEAT_TOKEN, secret: "secret:seat/chief" }]
+  - id: seat-social
+    kind: seat
+    driver: claudeAgent
+    environment: studio-mac
+    posture: standard
+    model: claude-sonnet-5-5
+    runtime_mode: full-access
+    idle_compaction: "off"
+    env: [{ name: T3DOT_SEAT_TOKEN, secret: "secret:seat/social" }]
+
+seats:
+  - id: chief
+    title: Chief of staff
+    brands: [acme]
+    reports_to: null
+    class: presenter
+    profile: seat-chief
+    status: active
+    human_chat: true
+    wake: { coalesce_window_s: 30, max_events: 20, max_wakes_per_day: 120 }
+    rotation: { max_items: 8000, max_age_days: 7 }
+  - id: social
+    title: Social poster
+    brands: [acme]
+    reports_to: chief
+    class: actor
+    profile: seat-social
+    status: active
+
+events:
+  - { type: msg.inbound, description: Customer message, brand: acme, priority: high, pii: refs, sources: [inbox] }
+  - { type: slot.due, description: Posting slot, brand: acme, priority: normal, pii: none, sources: [clock] }
+  - { type: post.published, description: Post went live, brand: acme, priority: low, pii: none, routing: informational }
+
+sources:
+  - id: inbox
+    kind: file_tail
+    path: /Users/owner/acme/inbox.ndjson
+    format: ndjson
+    map: [{ type: msg.inbound, key: "$.id", brand: acme, subject: { thread: "$.chat" } }]
+  - { id: clock, kind: timer }
+
+routes:
+  - id: inbound-to-chief
+    on: { type: msg.inbound }
+    to: { seat: chief }
+    work: { attach: subject.thread }
+    settle: required
+  - id: slot-to-social
+    on: { type: slot.due }
+    to: { seat: social }
+    settle: required
+    predicates: [asset-ready]
+    leases: ["browser:social"]
+  - id: missed-to-chief
+    on: { type: [expectation.missed, work.stuck] }
+    to: { seat: chief }
+    settle: optional
+
+predicates:
+  - { id: asset-ready, kind: event_seen, params: { type: asset.approved, within_s: 86400 }, description: An approved asset exists }
+
+leases:
+  - { name: "browser:social", ttl_s: 1800, renew_s: 300, holders: ["seat:social"], protects: [post.intent] }
+
+budgets:
+  - { id: msgs-per-day, kind: rate, unit: sends, window: day, limit: 100, warn_at: 0.8, scope: { company: true }, applies_to: { ops: [msg.send] }, on_hold: { notify: chief } }
+  - { id: chief-tokens, kind: compute, unit: tokens, window: day, limit: 3000000, scope: { seat: chief }, unpriced: count }
+
+timers:
+  - { id: slot-1030, owner: system, schedule: { cron: "30 10 * * *" }, emits: { type: slot.due, brand: acme }, catch_up: { mode: once, window_s: 900 } }
+
+expectations:
+  - id: one-post-a-day
+    window: { cron: "0 9 * * *" }
+    deadline_s: 50400
+    must_see: { type: post.published, count: 1 }
+    on_miss: { emit: expectation.missed, route_to: chief }
+
+decisions:
+  - { id: price.quote, kind: decide, title: Price for a lead, presenter: chief, deciders: [{ who: human }], pin: true, floor: true, always_allow: { allowed: false } }
+  - { id: assist.login, kind: assist, title: Sign-in needed, presenter: none, deciders: [{ who: human }], pin: false, floor: false }
+
+grants:
+  - id: chief-send
+    actor: seat:chief
+    ops: [msg.send]
+    constraints: { templates: [ack, follow-up], budgets: [msgs-per-day], must_not_match: ["₹\\s?\\d"] }
+  - id: social-post
+    actor: seat:social
+    ops: [post.intent]
+    constraints: { lease: "browser:social" }
+  - id: autoreply-send
+    actor: script:autoreply
+    ops: [msg.send]
+    constraints: { templates: [ack], budgets: [msgs-per-day] }
+
+integrations:
+  - id: chat
+    kind: whatsapp
+    credentials: ["secret:chat/session"]
+    ops:
+      - { name: msg.send, mode: write, outbound: true, idempotent: true }
+      - { name: msg.read, mode: read }
+  - id: social-browser
+    kind: t3_browser
+    ops: [{ name: post.intent, mode: write, protected_by: "browser:social" }]
+
+monitors:
+  - { id: sentinel, kind: sentinel, every_s: 60, emits: [t3.down, t3.up] }
+  - { id: stuck, kind: stuck_sweep, every_s: 300, emits: [work.stuck] }
+  - { id: expect, kind: expectations, every_s: 60, emits: [expectation.missed] }
