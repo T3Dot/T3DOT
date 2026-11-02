@@ -5,7 +5,7 @@
 How this design was made:
 - **T3 Code facts** come from reading T3 Code's public source. [Appendix A](#appendix-a-t3-code-facts-this-design-relies-on) lists every behaviour the design depends on, with source paths, checked at upstream `main` `e6e2ab05cc` (1 Nov 2026). Re-check them against the version you run.
 - **Prior art:** [Paperclip](https://github.com/paperclipai/paperclip) (MIT, Paperclip Labs) was read closely. Ideas are borrowed; no code is copied.
-- **Two real agent organisations** wrote complete configurations against this design: a small multi-brand services business that runs its desk, social posting and releases on T3 Code (full mode), and a team that already runs its own agent kernel (bridge mode). Their configurations hold private operational detail and are not published. What they taught is folded in, anonymised.
+- **Complete configurations were written for two real agent organisations,** from how they actually operate: a small multi-brand services business that runs its desk, social posting and releases on T3 Code (full mode), and a team that already runs its own agent kernel (bridge mode). Neither adoption has been carried out yet. The configurations hold private operational detail and are not published; what they taught is folded in, anonymised.
 
 The configuration format is specified in [`CONFIG.md`](CONFIG.md) and checked by [`schema.json`](schema.json) plus [`../tools/validate.mjs`](../tools/validate.mjs).
 
@@ -812,7 +812,7 @@ Posting seats open T3's persistent browser profile (`preview_open` with `profile
 5. **Resource leases with fencing** for shared resources such as a browser.
 6. **Expectations,** replacing LLM oversight polling with deterministic checks and change-only wakes.
 
-Lessons from a real bridge-mode adoption:
+Lessons from designing a real bridge-mode adoption:
 - **Per-run tool tokens.** A kernel that gives each run a fresh tool endpoint and token can't pass them through T3's static provider config. A per-seat MCP gateway works today: it identifies the calling thread (seat token plus `T3CODE_THREAD_ID` on Claude), resolves the conversation's single live run, and re-checks that run's lease on every call. Upstream patch #6 would make the thread identity tamper-proof.
 - **System text.** T3 has no per-thread instructions yet, so the org's developer text goes in as the thread's first message, followed by deltas. A small static preamble in the profile says that this text takes precedence.
 - **Restart continuation off.** Set `continueThreadsAfterServerUpdate: false` on the environment, so T3 never starts turns the org's kernel didn't claim.
@@ -836,7 +836,7 @@ Lessons from a real bridge-mode adoption:
 
 ## 17. Changelog and backlog
 
-**v2.1 (2 Nov 2026).** Two real organisations wrote complete configurations against v2 and listed what the format couldn't express. v2.1 adopted the additive items below. The schema stayed backward-compatible, and both configurations, plus `examples/minimal`, validate with 0 errors and 0 warnings.
+**v2.1 (2 Nov 2026).** Writing complete configurations for two real organisations against v2 showed what the format couldn't express. v2.1 adopted the additive items below. The schema stayed backward-compatible, and both configurations, plus `examples/minimal`, validate with 0 errors and 0 warnings.
 
 | Change | Where |
 |---|---|
